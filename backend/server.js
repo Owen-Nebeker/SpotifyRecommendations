@@ -5,6 +5,11 @@ const bodyParser = require('body-parser');
 const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
+// Development only - disable SSL cert verification for Spotify OAuth
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 const app = express();
 
 app.use(cors({

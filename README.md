@@ -34,8 +34,9 @@ AI-powered classical music recommendations tailored to your Spotify playlists, p
 5. Copy your **Client ID** and **Client Secret**
 6. Go to "Edit Settings" and set Redirect URI to:
    ```
-   http://localhost:5000/api/auth/callback
+   http://127.0.0.1:5000/api/auth/callback
    ```
+   (Note: Spotify requires `127.0.0.1` instead of `localhost` for security)
 
 ### 2. Get Claude API Key
 

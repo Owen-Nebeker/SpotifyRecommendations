@@ -5,6 +5,11 @@ const bodyParser = require('body-parser');
 const Anthropic = require('@anthropic-ai/sdk');
 require('dotenv').config();
 
+// Development only - disable SSL cert verification for Spotify OAuth
+if (process.env.NODE_ENV !== 'production') {
+  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+}
+
 const app = express();
 
 app.use(cors({
@@ -133,12 +138,16 @@ app.get('/api/playlists', async (req, res) => {
       params: { limit: 50 },
     });
 
+    if (!response.data || !Array.isArray(response.data.items)) {
+      return res.status(500).json({ error: 'Invalid Spotify response' });
+    }
+
     const playlists = response.data.items.map(p => ({
       id: p.id,
       name: p.name,
       description: p.description,
       imageUrl: p.images?.[0]?.url,
-      trackCount: p.tracks.total,
+      trackCount: p.tracks?.total || 0,
     }));
 
     res.json({ playlists });
@@ -163,18 +172,20 @@ async function getAllPlaylistTracks(accessToken, playlistId) {
       }
     );
 
-    const tracks = response.data.items.map(item => {
-      const track = item.track;
-      return {
-        id: track.id,
-        name: track.name,
-        artists: track.artists.map(a => a.name),
-        composer: track.artists?.[0]?.name, // First artist as composer
-        genres: track.album?.genres || [],
-        duration: track.duration_ms,
-        year: track.album?.release_date?.split('-')[0],
-      };
-    });
+    const tracks = response.data.items
+      .filter(item => item.track !== null)
+      .map(item => {
+        const track = item.track;
+        return {
+          id: track.id,
+          name: track.name,
+          artists: track.artists.map(a => a.name),
+          composer: track.artists?.[0]?.name,
+          genres: track.album?.genres || [],
+          duration: track.duration_ms,
+          year: track.album?.release_date?.split('-')[0],
+        };
+      });
 
     allTracks.push(...tracks);
 

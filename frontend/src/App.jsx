@@ -99,6 +99,7 @@ export default function App() {
 
     if (sid && !sessionId) {
       setSessionId(sid)
+      setState('select')
       handleLoadPlaylists(sid)
       window.history.replaceState({}, document.title, window.location.pathname)
     }

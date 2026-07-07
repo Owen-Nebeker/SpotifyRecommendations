@@ -266,7 +266,7 @@ app.post('/api/recommend', async (req, res) => {
     // Format for Claude
     const trackList = tracks
       .slice(0, 150)
-      .map(t => `${t.name} - ${t.composers || t.artists.join(', ')}`)
+      .map(t => `${t.name} - ${t.artists.join(', ')}`)
       .join('\n');
 
     const composersSet = new Set(tracks.slice(0, 50).map(t => t.composer));

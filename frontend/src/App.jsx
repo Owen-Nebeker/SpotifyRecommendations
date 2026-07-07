@@ -64,7 +64,7 @@ export default function App() {
       setAnalysis(response.data.analysis)
       setState('view')
     } catch (err) {
-      setError('Failed to analyze playlist.')
+      setError(err.response?.data?.error || 'Failed to analyze playlist.')
       console.error(err)
       setState('select')
     } finally {
@@ -84,7 +84,7 @@ export default function App() {
       })
       setRecommendations(response.data.recommendations)
     } catch (err) {
-      setError('Failed to generate recommendations.')
+      setError(err.response?.data?.error || 'Failed to generate recommendations.')
       console.error(err)
     } finally {
       setLoading(false)

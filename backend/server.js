@@ -142,7 +142,17 @@ app.get('/api/playlists', async (req, res) => {
       return res.status(500).json({ error: 'Invalid Spotify response' });
     }
 
-    const playlists = response.data.items.map(p => ({
+    // Diagnostic: log the shape of the first playlist so we can see what Spotify returns
+    if (response.data.items.length > 0) {
+      const sample = response.data.items[0];
+      console.log('Sample playlist from Spotify:', JSON.stringify({
+        name: sample?.name,
+        tracks: sample?.tracks,
+        keys: sample ? Object.keys(sample) : null,
+      }, null, 2));
+    }
+
+    const playlists = response.data.items.filter(p => p !== null).map(p => ({
       id: p.id,
       name: p.name,
       description: p.description,
@@ -233,7 +243,7 @@ ${trackList}
 Provide a brief, insightful analysis (150-200 words) focused on what makes this collection cohesive.`;
 
     const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-5',
       max_tokens: 500,
       messages: [
         {
@@ -246,8 +256,9 @@ Provide a brief, insightful analysis (150-200 words) focused on what makes this 
     const analysis = message.content[0].text;
     res.json({ analysis, trackCount: tracks.length });
   } catch (error) {
-    console.error('Analysis error:', error);
-    res.status(500).json({ error: 'Failed to analyze playlist' });
+    const detail = error.response?.data?.error || error.error?.message || error.message || 'Unknown error';
+    console.error('Analysis error:', detail);
+    res.status(500).json({ error: `Failed to analyze playlist: ${JSON.stringify(detail)}` });
   }
 });
 
@@ -293,7 +304,7 @@ Focus on:
 Return ONLY the numbered list, no additional text.`;
 
     const message = await client.messages.create({
-      model: 'claude-3-5-sonnet-20241022',
+      model: 'claude-sonnet-5',
       max_tokens: 800,
       messages: [
         {
@@ -306,8 +317,9 @@ Return ONLY the numbered list, no additional text.`;
     const recommendations = message.content[0].text;
     res.json({ recommendations });
   } catch (error) {
-    console.error('Recommendation error:', error);
-    res.status(500).json({ error: 'Failed to generate recommendations' });
+    const detail = error.response?.data?.error || error.error?.message || error.message || 'Unknown error';
+    console.error('Recommendation error:', detail);
+    res.status(500).json({ error: `Failed to generate recommendations: ${JSON.stringify(detail)}` });
   }
 });
 

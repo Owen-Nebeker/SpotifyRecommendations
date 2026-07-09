@@ -29,6 +29,13 @@ const SPOTIFY_AUTH_URL = 'https://accounts.spotify.com/api/token';
 // Store tokens in-memory (use proper session store in production)
 const userSessions = new Map();
 
+// Claude responses may include non-text blocks (e.g. thinking) before the
+// text block, so don't assume content[0] is the text.
+function extractText(message) {
+  const block = message.content.find(b => b.type === 'text');
+  return block ? block.text : '';
+}
+
 // Generate random state for OAuth
 function generateState() {
   return Math.random().toString(36).substring(7);
@@ -245,7 +252,7 @@ Format your response as clean Markdown: a "### " header for each of the four sec
       ],
     });
 
-    const analysis = message.content[0].text;
+    const analysis = extractText(message);
     res.json({ analysis, trackCount: tracks.length });
   } catch (error) {
     const detail = error.response?.data?.error || error.error?.message || error.message || 'Unknown error';
@@ -339,7 +346,7 @@ No brackets, no extra commentary, no headers.`;
       ],
     });
 
-    const rawText = message.content[0].text;
+    const rawText = extractText(message);
     const parsed = parseRecommendations(rawText);
 
     // Enrich each recommendation with real Spotify track data (album art, link, URI)

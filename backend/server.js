@@ -41,7 +41,7 @@ app.get('/api/auth/login', (req, res) => {
     client_id: process.env.SPOTIFY_CLIENT_ID,
     response_type: 'code',
     redirect_uri: process.env.SPOTIFY_REDIRECT_URI,
-    scope: 'playlist-read-private playlist-read-collaborative',
+    scope: 'playlist-read-private playlist-read-collaborative playlist-modify-public playlist-modify-private',
     state,
   });
 
@@ -219,7 +219,7 @@ app.post('/api/analyze', async (req, res) => {
       .map(t => `${t.name} - ${t.artists.join(', ')} (${t.year || 'Unknown year'})`)
       .join('\n');
 
-    const prompt = `You are an expert classical music analyst. Analyze this classical music playlist and provide:
+    const prompt = `You are an expert classical music analyst. Analyze this classical music playlist and cover:
 
 1. **Composition Period & Style**: What era(s) of classical music dominate?
 2. **Key Themes**: What emotional or thematic threads connect the pieces?
@@ -232,11 +232,11 @@ Track Count: ${tracks.length}
 Tracks:
 ${trackList}
 
-Provide a brief, insightful analysis (150-200 words) focused on what makes this collection cohesive.`;
+Format your response as clean Markdown: a "### " header for each of the four sections, with short bullet points under each (bold key terms like composer names and musical terms). No top-level title, no preamble — start directly with the first section header. Keep the whole analysis under 250 words and make sure it is complete (do not trail off).`;
 
     const message = await client.messages.create({
       model: 'claude-sonnet-5',
-      max_tokens: 500,
+      max_tokens: 1000,
       messages: [
         {
           role: 'user',
@@ -254,6 +254,49 @@ Provide a brief, insightful analysis (150-200 words) focused on what makes this 
   }
 });
 
+// Recommendation weighting rubric (verbatim — do not edit)
+const CLASSICAL_REC_WEIGHTS = `<Classical-rec weights: Composer/school 28%: first listed artist = composer; normalize/fact-check name; infer era/sub-era, national school, harmonic language, and adjacent composers; trust repeated patterns over one-offs. Work type/instrumentation 24%: match actual forces/form—solo piano, chamber, quartet, concerto, symphony, opera/lieder, choral/sacred, ballet, early/HIP, etc.; ensemble size/timbre matters more than generic “classical.” Movement/vibe 20%: tempo/marking, affect, texture, intensity, lyricism vs virtuosity/drama, sacred/dance/pastoral/tragic, tonal/modernist, long/miniature; match liked movements even across different composers. Performer/recording 13%: secondary artists = performers/conductors/ensembles/singers; weight heavily only if repeated; otherwise pick esteemed, style-appropriate recordings, noting HIP vs modern when relevant. Serendipity/anti-popularity 8%: include 1–2 tasteful adventurous picks when possible—lesser-known works by liked composers, adjacent niche composers/schools, unusual forms, neglected movements, or elite recordings outside the obvious canon; avoid generic popularity defaults unless strongly supported by the playlist. Quality/discovery/hygiene 7%: recommend elite adjacent works, not generic greatest hits; avoid exact works/movements already in playlist; normalize full work/movement/catalog duplicates; alternate recordings only when the performer is the point; make most picks close-fit elite choices, but include a small “adventurous” slice that is clearly justified by the user’s taste rather than by general classical popularity.>`;
+
+// Parse Claude's numbered list into structured recommendations
+function parseRecommendations(text) {
+  const recs = [];
+  for (const line of text.split('\n')) {
+    const m = line.match(/^\s*\d+\.\s*(.+)$/);
+    if (!m) continue;
+    const parts = m[1].split(' - ').map(s => s.trim());
+    recs.push({
+      piece: parts[0] || '',
+      composer: parts[1] || '',
+      performer: parts.slice(2).join(' - ') || '',
+    });
+  }
+  return recs;
+}
+
+// Look up a recommended piece on Spotify (album art, link, URI)
+async function searchSpotifyTrack(accessToken, rec) {
+  try {
+    const q = [rec.piece, rec.composer].filter(Boolean).join(' ');
+    const resp = await axios.get(`${SPOTIFY_API_URL}/search`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      params: { q, type: 'track', limit: 1 },
+    });
+    const track = resp.data?.tracks?.items?.[0];
+    if (!track) return null;
+    return {
+      trackId: track.id,
+      trackName: track.name,
+      trackArtists: (track.artists || []).map(a => a.name).join(', '),
+      albumArt: track.album?.images?.[1]?.url || track.album?.images?.[0]?.url || null,
+      url: track.external_urls?.spotify || null,
+      uri: track.uri,
+    };
+  } catch (error) {
+    console.error('Spotify search error for', rec.piece, '-', error.response?.status || error.message);
+    return null;
+  }
+}
+
 // Get recommendations
 app.post('/api/recommend', async (req, res) => {
   const { sessionId, playlistId } = req.body;
@@ -266,38 +309,28 @@ app.post('/api/recommend', async (req, res) => {
   try {
     const tracks = await getAllPlaylistTracks(session.accessToken, playlistId);
 
-    // Format for Claude
     const trackList = tracks
       .slice(0, 150)
       .map(t => `${t.name} - ${t.artists.join(', ')}`)
       .join('\n');
 
-    const composersSet = new Set(tracks.slice(0, 50).map(t => t.composer));
-    const topComposers = Array.from(composersSet).slice(0, 10).join(', ');
+    const prompt = `You are a classical music expert recommendation engine. Recommend 15 classical music tracks based on the playlist below.
 
-    const prompt = `You are a classical music expert. Based on this playlist, recommend 15 classical music tracks that fit the same style and mood.
+Score and select candidates using EXACTLY this weighting rubric:
 
-Key Composers in Playlist: ${topComposers}
+${CLASSICAL_REC_WEIGHTS}
 
-Recent Tracks:
+Playlist tracks (title - artists, where the first artist is the composer):
 ${trackList}
 
-Please recommend 15 tracks in this format:
-1. [Piece Name] - [Composer] - [Performer/Conductor if notable]
-2. [Next recommendation...]
-etc.
+Return ONLY a numbered list of 15 recommendations, one per line, in exactly this format (three fields separated by " - "):
+1. Piece Name - Composer - Performer/Conductor
 
-Focus on:
-- Similar composition period and style
-- Lesser-known works by featured composers
-- Quality recordings/notable performers
-- Thematic or harmonic connections to the playlist
-
-Return ONLY the numbered list, no additional text.`;
+No brackets, no extra commentary, no headers.`;
 
     const message = await client.messages.create({
       model: 'claude-sonnet-5',
-      max_tokens: 800,
+      max_tokens: 1200,
       messages: [
         {
           role: 'user',
@@ -306,12 +339,53 @@ Return ONLY the numbered list, no additional text.`;
       ],
     });
 
-    const recommendations = message.content[0].text;
+    const rawText = message.content[0].text;
+    const parsed = parseRecommendations(rawText);
+
+    // Enrich each recommendation with real Spotify track data (album art, link, URI)
+    const recommendations = await Promise.all(
+      parsed.map(async rec => {
+        const match = await searchSpotifyTrack(session.accessToken, rec);
+        return { ...rec, ...(match || {}) };
+      })
+    );
+
     res.json({ recommendations });
   } catch (error) {
     const detail = error.response?.data?.error || error.error?.message || error.message || 'Unknown error';
     console.error('Recommendation error:', detail);
     res.status(500).json({ error: `Failed to generate recommendations: ${JSON.stringify(detail)}` });
+  }
+});
+
+// Add a recommended track to the user's playlist
+app.post('/api/playlist/add', async (req, res) => {
+  const { sessionId, playlistId, uri } = req.body;
+  const session = userSessions.get(sessionId);
+
+  if (!session) {
+    return res.status(401).json({ error: 'Invalid session' });
+  }
+  if (!playlistId || !uri) {
+    return res.status(400).json({ error: 'Missing playlistId or uri' });
+  }
+
+  try {
+    await axios.post(
+      `${SPOTIFY_API_URL}/playlists/${playlistId}/items`,
+      { uris: [uri] },
+      {
+        headers: {
+          Authorization: `Bearer ${session.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+    res.json({ success: true });
+  } catch (error) {
+    const detail = error.response?.data?.error || error.message || 'Unknown error';
+    console.error('Add track error:', detail);
+    res.status(500).json({ error: `Failed to add track: ${JSON.stringify(detail)}` });
   }
 });
 

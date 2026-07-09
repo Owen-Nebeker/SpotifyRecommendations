@@ -203,3 +203,179 @@ select {
   color: #1a1a1a;
   font-weight: 600;
 }
+
+/* Markdown analysis output — styled like a chat response */
+.markdown-body {
+  background: #f9f9f9;
+  border-left: 4px solid #1DB954;
+  border-radius: 0 8px 8px 0;
+  padding: 1.25rem 1.5rem;
+  margin: 1rem 0;
+  line-height: 1.7;
+  color: #333;
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  margin: 1.25rem 0 0.5rem;
+  color: #1a1a1a;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.markdown-body h3:first-child,
+.markdown-body h2:first-child,
+.markdown-body p:first-child {
+  margin-top: 0;
+}
+
+.markdown-body p {
+  margin: 0.5rem 0;
+}
+
+.markdown-body ul,
+.markdown-body ol {
+  margin: 0.5rem 0;
+  padding-left: 1.4rem;
+}
+
+.markdown-body li {
+  margin: 0.3rem 0;
+}
+
+.markdown-body strong {
+  color: #1a1a1a;
+}
+
+.markdown-body code {
+  background: #eef0f2;
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.85em;
+  color: #c0392b;
+}
+
+.markdown-body blockquote {
+  border-left: 3px solid #ddd;
+  margin: 0.75rem 0;
+  padding-left: 1rem;
+  color: #666;
+}
+
+/* Recommendation cards — matches the analysis panel style */
+.rec-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: #f9f9f9;
+  border-left: 4px solid #1DB954;
+  border-radius: 0 8px 8px 0;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.rec-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.rec-art {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.rec-art-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef0f2;
+  font-size: 1.5rem;
+}
+
+.rec-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.rec-title {
+  font-weight: 600;
+  color: #1a1a1a;
+  font-size: 0.95rem;
+}
+
+.rec-sub {
+  font-size: 0.85rem;
+  color: #555;
+  margin-top: 0.15rem;
+}
+
+.rec-performer {
+  color: #888;
+}
+
+.rec-match {
+  font-size: 0.78rem;
+  color: #999;
+  margin-top: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rec-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.rec-add {
+  padding: 0.4rem 0.9rem;
+  border-radius: 16px;
+  font-size: 0.8rem;
+}
+
+.rec-add:disabled {
+  background: #d7f5e2;
+  color: #1a7a40;
+  cursor: default;
+}
+
+.rec-open {
+  font-size: 0.78rem;
+  color: #1DB954;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.rec-open:hover {
+  text-decoration: underline;
+}
+
+.rec-nomatch {
+  font-size: 0.78rem;
+  color: #aaa;
+}
+
+@media (max-width: 600px) {
+  .rec-card {
+    flex-wrap: wrap;
+  }
+
+  .rec-actions {
+    flex-direction: row;
+    width: 100%;
+    justify-content: flex-end;
+  }
+}

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import ReactMarkdown from 'react-markdown'
 
 const API_URL = '/api'
 
@@ -10,6 +11,7 @@ export default function App() {
   const [selectedPlaylist, setSelectedPlaylist] = useState(null)
   const [analysis, setAnalysis] = useState(null)
   const [recommendations, setRecommendations] = useState(null)
+  const [addStatus, setAddStatus] = useState({}) // index -> 'adding' | 'added' | 'error'
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -54,6 +56,7 @@ export default function App() {
     setState('analyzing')
     setAnalysis(null)
     setRecommendations(null)
+    setAddStatus({})
 
     try {
       const response = await axios.post(`${API_URL}/analyze`, {
@@ -83,11 +86,31 @@ export default function App() {
         playlistId: selectedPlaylist.id,
       })
       setRecommendations(response.data.recommendations)
+      setAddStatus({})
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to generate recommendations.')
       console.error(err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Add a recommended track back to the analyzed playlist
+  const handleAddTrack = async (index, uri) => {
+    setAddStatus(prev => ({ ...prev, [index]: 'adding' }))
+    setError(null)
+
+    try {
+      await axios.post(`${API_URL}/playlist/add`, {
+        sessionId,
+        playlistId: selectedPlaylist.id,
+        uri,
+      })
+      setAddStatus(prev => ({ ...prev, [index]: 'added' }))
+    } catch (err) {
+      setAddStatus(prev => ({ ...prev, [index]: 'error' }))
+      setError(err.response?.data?.error || 'Failed to add track.')
+      console.error(err)
     }
   }
 
@@ -197,8 +220,8 @@ export default function App() {
         <div className="card">
           <h1>📊 Playlist Analysis</h1>
 
-          <div className="analysis-text">
-            {analysis}
+          <div className="markdown-body">
+            <ReactMarkdown>{analysis}</ReactMarkdown>
           </div>
 
           <div className="button-group">
@@ -206,6 +229,7 @@ export default function App() {
               setState('select')
               setAnalysis(null)
               setRecommendations(null)
+              setAddStatus({})
             }}>
               ← Select Another Playlist
             </button>
@@ -217,14 +241,50 @@ export default function App() {
           {recommendations && (
             <div style={{ marginTop: '2rem' }}>
               <h2>🎼 Recommended Tracks</h2>
-              <div className="analysis-text">
-                <ol style={{ paddingLeft: '1.5rem', whiteSpace: 'pre-wrap' }}>
-                  {recommendations}
-                </ol>
+              <div className="rec-list">
+                {recommendations.map((rec, i) => (
+                  <div className="rec-card" key={i}>
+                    {rec.albumArt ? (
+                      <img src={rec.albumArt} alt="" className="rec-art" />
+                    ) : (
+                      <div className="rec-art rec-art-placeholder">🎵</div>
+                    )}
+                    <div className="rec-info">
+                      <div className="rec-title">{rec.piece}</div>
+                      <div className="rec-sub">
+                        {rec.composer}
+                        {rec.performer && <span className="rec-performer"> • {rec.performer}</span>}
+                      </div>
+                      {rec.trackName && (
+                        <div className="rec-match">
+                          {rec.trackName} — {rec.trackArtists}
+                        </div>
+                      )}
+                    </div>
+                    <div className="rec-actions">
+                      {rec.uri ? (
+                        <button
+                          className="rec-add"
+                          onClick={() => handleAddTrack(i, rec.uri)}
+                          disabled={addStatus[i] === 'adding' || addStatus[i] === 'added'}
+                        >
+                          {addStatus[i] === 'added' ? '✓ Added'
+                            : addStatus[i] === 'adding' ? 'Adding…'
+                            : addStatus[i] === 'error' ? 'Retry'
+                            : '+ Add to playlist'}
+                        </button>
+                      ) : (
+                        <span className="rec-nomatch">Not on Spotify</span>
+                      )}
+                      {rec.url && (
+                        <a href={rec.url} target="_blank" rel="noreferrer" className="rec-open">
+                          Open ↗
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: '#999' }}>
-                💡 Tip: Search these titles on Spotify to add them to your playlist!
-              </p>
             </div>
           )}
 

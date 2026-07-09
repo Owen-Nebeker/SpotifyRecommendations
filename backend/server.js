@@ -244,6 +244,7 @@ Format your response as clean Markdown: a "### " header for each of the four sec
     const message = await client.messages.create({
       model: 'claude-sonnet-5',
       max_tokens: 1000,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -337,7 +338,8 @@ No brackets, no extra commentary, no headers.`;
 
     const message = await client.messages.create({
       model: 'claude-sonnet-5',
-      max_tokens: 1200,
+      max_tokens: 2000,
+      thinking: { type: 'disabled' },
       messages: [
         {
           role: 'user',
@@ -348,6 +350,11 @@ No brackets, no extra commentary, no headers.`;
 
     const rawText = extractText(message);
     const parsed = parseRecommendations(rawText);
+
+    if (parsed.length === 0) {
+      console.error('Recommendation parse failure. Raw Claude output:', rawText);
+      return res.status(500).json({ error: 'Claude did not return a parseable recommendation list. Please try again.' });
+    }
 
     // Enrich each recommendation with real Spotify track data (album art, link, URI)
     const recommendations = await Promise.all(

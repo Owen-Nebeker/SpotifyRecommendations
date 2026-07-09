@@ -142,22 +142,14 @@ app.get('/api/playlists', async (req, res) => {
       return res.status(500).json({ error: 'Invalid Spotify response' });
     }
 
-    // Diagnostic: log the shape of the first playlist so we can see what Spotify returns
-    if (response.data.items.length > 0) {
-      const sample = response.data.items[0];
-      console.log('Sample playlist from Spotify:', JSON.stringify({
-        name: sample?.name,
-        tracks: sample?.tracks,
-        keys: sample ? Object.keys(sample) : null,
-      }, null, 2));
-    }
-
+    // Spotify's Feb 2026 API migration renamed the playlist "tracks" field to "items".
+    // Support both shapes in case of transition-period responses.
     const playlists = response.data.items.filter(p => p !== null).map(p => ({
       id: p.id,
       name: p.name,
       description: p.description,
       imageUrl: p.images?.[0]?.url,
-      trackCount: p.tracks?.total || 0,
+      trackCount: p.items?.total ?? p.tracks?.total ?? 0,
     }));
 
     res.json({ playlists });
@@ -174,8 +166,10 @@ async function getAllPlaylistTracks(accessToken, playlistId) {
   const limit = 50;
 
   while (true) {
+    // Feb 2026 Spotify API migration: /playlists/{id}/tracks was replaced by
+    // /playlists/{id}/items, and each entry's "track" field was renamed "item".
     const response = await axios.get(
-      `${SPOTIFY_API_URL}/playlists/${playlistId}/tracks`,
+      `${SPOTIFY_API_URL}/playlists/${playlistId}/items`,
       {
         headers: { Authorization: `Bearer ${accessToken}` },
         params: { offset, limit },
@@ -183,19 +177,17 @@ async function getAllPlaylistTracks(accessToken, playlistId) {
     );
 
     const tracks = response.data.items
-      .filter(item => item.track !== null)
-      .map(item => {
-        const track = item.track;
-        return {
-          id: track.id,
-          name: track.name,
-          artists: track.artists.map(a => a.name),
-          composer: track.artists?.[0]?.name,
-          genres: track.album?.genres || [],
-          duration: track.duration_ms,
-          year: track.album?.release_date?.split('-')[0],
-        };
-      });
+      .map(entry => entry.item ?? entry.track)
+      .filter(track => track != null)
+      .map(track => ({
+        id: track.id,
+        name: track.name,
+        artists: (track.artists || []).map(a => a.name),
+        composer: track.artists?.[0]?.name,
+        genres: track.album?.genres || [],
+        duration: track.duration_ms,
+        year: track.album?.release_date?.split('-')[0],
+      }));
 
     allTracks.push(...tracks);
 

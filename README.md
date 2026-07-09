@@ -4,11 +4,11 @@ AI-powered classical music recommendations tailored to your Spotify playlists, p
 
 ## Features
 
-- 🎵 Sign in with Spotify OAuth
-- 🔍 Analyze your classical music playlists
-- 🎼 Get personalized recommendations from Claude
-- 📚 Understand composition style, period, and mood
-- 🎯 Classical-music-specific analysis (handles composers, movements, versions)
+- Sign in with Spotify OAuth
+- Select a playlist from the signed-in account
+- Analyze composer, period, form, recording, and movement-level taste signals with Claude
+- Generate recommendations using the classical-specific weighting rubric
+- Search recommendations on Spotify and add matched tracks back to the playlist
 
 ## Tech Stack
 
@@ -57,23 +57,16 @@ Edit `backend/.env` with your credentials:
 PORT=5000
 SPOTIFY_CLIENT_ID=your_client_id
 SPOTIFY_CLIENT_SECRET=your_client_secret
-SPOTIFY_REDIRECT_URI=http://localhost:5000/api/auth/callback
+SPOTIFY_REDIRECT_URI=http://127.0.0.1:5000/api/auth/callback
 CLAUDE_API_KEY=your_claude_api_key
-FRONTEND_URL=http://localhost:3000
+CLAUDE_MODEL=claude-sonnet-5
+FRONTEND_URL=http://127.0.0.1:3000
 ```
 
 Install and start backend:
 ```bash
 npm install
 npm start
-```
-
-Or add to `package.json`:
-```json
-"scripts": {
-  "start": "node server.js",
-  "dev": "nodemon server.js"
-}
 ```
 
 ### 4. Setup Frontend
@@ -95,6 +88,10 @@ Visit `http://localhost:3000` in your browser.
 5. Claude analyzes the playlist's vibe and mood
 6. Choose **"Get Recommendations"** to see 15 suggested tracks
 7. Search the recommendations on Spotify and add them!
+
+## Spotify Policy Note
+
+Spotify's current playlist item documentation includes policy language about AI/ML ingestion of Spotify content. This repo implements the requested local prototype flow, but review Spotify's latest developer terms before using the Claude analysis path in a public or commercial deployment.
 
 ## Project Structure
 
